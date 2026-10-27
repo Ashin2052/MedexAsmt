@@ -1,0 +1,19 @@
+{
+  "name": "medex-assessment-mock-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "JSON Server replication API for the MedEx assessment",
+  "main": "server.cjs",
+  "scripts": {
+    "dev": "node server.cjs",
+    "dev:watch": "node --watch server.cjs"
+  },
+  "dependencies": {
+    "date-fns": "4.4.0",
+    "date-fns-tz": "3.2.0",
+    "json-server": "0.17.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

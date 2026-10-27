@@ -1,0 +1,53 @@
+DESIGN DIRECTION UPDATE — LIGHT THEME ONLY.
+
+I want a bright, clean, professional WHITE healthcare marketplace.
+
+The current dark theme is NOT acceptable. Replace the dark visual design throughout the entire application.
+
+IMPORTANT DESIGN REQUIREMENTS:
+
+1. Use a light theme as the default across every page and component.
+2. Main background must be white (#FFFFFF).
+3. Use very light grey/lavender backgrounds (#F8F7FB) for secondary sections.
+4. Cards must have white backgrounds, subtle borders and soft shadows.
+5. Use MedEx purple (#70208F) as the primary brand colour.
+6. Use magenta (#A43A9B) for secondary branding and accents.
+7. Use teal (#26B6B0) sparingly for highlights.
+8. Use dark text (#252238) with readable secondary text.
+9. Navigation should use a clean white or subtle purple-branded header.
+10. Primary buttons should use purple backgrounds with white text.
+
+VISUAL STYLE:
+
+- Bright and spacious.
+- Premium healthcare marketplace.
+- Clean typography.
+- Subtle shadows.
+- Rounded but not excessively rounded cards.
+- Professional medical service presentation.
+- Clear pricing hierarchy.
+- Consistent spacing and alignment.
+
+TECHNOLOGY:
+
+- Tailwind CSS for styling.
+- shadcn/ui for accessible reusable components.
+- Lucide React for icons.
+
+CSS CLEANUP:
+
+- Remove obsolete dark-theme CSS safely.
+- Remove duplicated styles.
+- Remove conflicting dark backgrounds and dark-theme classes.
+- Consolidate styles using Tailwind design tokens.
+- Avoid unnecessary custom CSS.
+
+IMPORTANT:
+- Check all pages, dialogs, drawers, dropdowns, inputs, tables, cards and notifications.
+- Do not leave individual components in dark mode.
+- Do not change business logic or assessment functionality.
+- Do not introduce a dark/light theme toggle. Light theme only.
+
+After implementation, run the application and visually inspect all three assessment tasks on desktop and mobile.
+
+The final result must consistently look like a modern, white-background MedEx healthcare platform.

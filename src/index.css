@@ -1,0 +1,133 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '@fontsource-variable/inter';
+
+/*
+ * Light theme only. The `dark:` variant is bound to a `.dark` class that the
+ * app never sets, so any `dark:` utility (e.g. from future shadcn/ui
+ * components) stays inert and an OS dark-mode preference changes nothing.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Design tokens — the single source of colour, type and radius.
+ * Components use the semantic names (primary, muted, …); the MedEx brand
+ * palette feeds them.
+ */
+:root {
+  --brand-purple: #70208f;
+  --brand-magenta: #a43a9b;
+  /* Teal is for highlights only (icons, borders, dots): 2.6:1 on white, too low for text. */
+  --brand-teal: #26b6b0;
+  /* The same teal darkened for text (≈5.4:1 on white, WCAG AA). */
+  --brand-teal-text: #127a75;
+
+  --background: #ffffff;
+  --foreground: #252238;
+  --surface: #f8f7fb;
+  --card: #ffffff;
+  --card-foreground: #252238;
+  --popover: #ffffff;
+  --popover-foreground: #252238;
+  --primary: var(--brand-purple);
+  --primary-foreground: #ffffff;
+  --secondary: #f4ebf8;
+  --secondary-foreground: #5c1a76;
+  --muted: #f8f7fb;
+  --muted-foreground: #5f5a72;
+  --accent: #f6eff9;
+  --accent-foreground: #5c1a76;
+  --destructive: #b42318;
+  --destructive-soft: #fef1f0;
+  --success: var(--brand-teal-text);
+  --success-soft: #e8f7f6;
+  --warning-soft: #fff6e5;
+  --warning-foreground: #7a4b00;
+  --discount: var(--brand-magenta);
+  --discount-foreground: #ffffff;
+  --star: #b45309;
+  --border: #e7e4ef;
+  --input: #d9d5e3;
+  --ring: var(--brand-purple);
+  --radius: 0.625rem;
+}
+
+@theme inline {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --color-brand-purple: var(--brand-purple);
+  --color-brand-magenta: var(--brand-magenta);
+  --color-brand-teal: var(--brand-teal);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-discount: var(--discount);
+  --color-discount-foreground: var(--discount-foreground);
+  --color-star: var(--star);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Soft, low-contrast elevation for white cards. */
+  --shadow-card: 0 1px 2px rgb(37 34 56 / 4%), 0 2px 8px rgb(37 34 56 / 5%);
+  --shadow-card-hover: 0 2px 4px rgb(37 34 56 / 5%), 0 8px 24px rgb(112 32 143 / 10%);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    /* Native controls (selects, scrollbars, date inputs) render light too. */
+    color-scheme: light;
+  }
+
+  body {
+    @apply min-w-80 bg-background font-sans text-foreground antialiased;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    @apply cursor-pointer;
+  }
+}
+
+/* Respect reduced-motion preferences, including third-party animations. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
