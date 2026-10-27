@@ -31,9 +31,10 @@ JSON Server query options such as `_limit`, `_page`, `_sort` and `_order` are av
 - `PATCH /api/cart/items/:lineId` with `{ quantity }`
 - `PATCH /api/cart/items/:lineId` with `{ wellnessPricingId }`
 - `DELETE /api/cart/items/:lineId` → `204`
-- `POST /api/cart/merge` with `{ items }` → `{ cart, changes }`
+- `GET /api/cart/guest-sample` → `{ items }` (the fixture's guest cart)
+- `POST /api/cart/merge` with `{ items, mergeId }` → `{ cart, changes }` (the same `mergeId` returns the first result)
 - `POST /api/checkout` with `{ groupType, items?, paymentMethod, idempotencyKey }` → `201 { orderId, status }`
-- `GET /api/orders/:orderId` → `{ orderId, status }`
+- `GET /api/orders/:orderId` → `{ orderId, status }` (card orders go from `pending` to `paid` after about 2.5 s; pay-at-clinic orders stay `pending`)
 
 Checkout is per group. The client should call it separately for each group, preserve successful order IDs, and retry only failed groups. The same idempotency key and same request payload return the same order response. Reusing a key with a different payload returns `409`.
 
@@ -43,10 +44,13 @@ The mock starts with the given cart and guest cart. A successful checkout remove
 
 - `GET /api/booking/providers` → `{ providers }`
 - `GET /api/booking/providers/:id` → `{ provider }`
-- `GET /api/booking/providers/:id/slots?date=YYYY-MM-DD&specialistId=...&numberOfPeople=1`
-- `GET /api/bookings/existing` → `{ booking }`
-- `POST /api/bookings` with `{ providerId, specialistId, date, startTime, numberOfPeople }` → `201 { bookingId }`
-- `PUT /api/bookings/:id` with `{ date, startTime }` → `{ bookingId, status: "rescheduled" }`
+- `GET /api/booking/providers/:id/calendar?specialistId=...&people=1[&excludeBookingId=...]` → `{ providerId, timezone, today, days[90] }` (each day has a `status`, a `message` and a `freeCount`)
+- `GET /api/booking/providers/:id/slots?date=YYYY-MM-DD&specialistId=...&people=1[&excludeBookingId=...]` → the day's `status`, `window` and `slots` (each slot has UTC instants and a `state`: free / booked / past / insufficient)
+- `GET /api/bookings/:id` → `{ booking }` (`existing` is an alias for the fixture booking)
+- `POST /api/bookings` with `{ providerId, specialistId, date, startTime, numberOfPeople, idempotencyKey }` → `201` booking
+- `PUT /api/bookings/:id` with `{ date, startTime, idempotencyKey }` → the booking with `status: "rescheduled"`
+
+If the time is no longer free, both write routes return `409 { code: "slot-taken", alternatives: ["HH:mm", …] }`. The same idempotency key with the same payload returns the first result.
 
 The slots endpoint returns provider-local slot labels and availability metadata. It handles the seed closure/booked-slot data, provider weekly hours, specialist consultation duration/buffer, provider-local past-time checks, the 90-day horizon and group booking availability. The frontend remains responsible for displaying a clear customer-local converted clock alongside provider-local time.
 

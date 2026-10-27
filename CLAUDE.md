@@ -25,10 +25,10 @@ npx vitest run <file>        # one file;  npx vitest run -t "<name>"  tests matc
   - Task 1 is a read-only JSON Server router at `/api/explorer`; Tasks 2–3 are Express routes over in-memory copies of `../data/*.json`.
   - Their rules live in `mock-api/lib/cart.cjs` and `mock-api/lib/booking.cjs` (`date-fns-tz`), each with its own `*.test.mjs`.
   - Every `/api` response waits a fixed 1.5 s (`RESPONSE_DELAY_MS`) so loading states are visible. There is no failure injection (removed by user decision, D-25); tests simulate failures with `failNext` in `src/test/mockServer.ts`. Env: `MOCK_API_PORT`.
-  - State is in memory and resets on restart. Contracts are in `mock-api/README.md` and `docs/MOCK_API_CONTRACTS.md`. Contract changes (M-xx) need user approval.
+  - State is in memory and resets on restart. The contract is documented in `mock-api/README.md` and the README's API endpoint table. Contract changes need user approval.
 - **Tests:** colocated `*.test.ts(x)`. Helpers in `src/test/`: `mockServer.ts` (the real mock on a random port, `FIXED_NOW` = Mon 26 Oct 2026 10:00 Bangkok), `fixtures.ts`, `explorerIndex.ts`, and `setup.ts` (ResizeObserver stub for Radix). Test files are type-checked by `tsconfig.test.json`.
 - **Design:** light theme only. Tokens are in `src/index.css`: white page, `surface` `#F8F7FB`, primary purple `#70208F`, magenta `#A43A9B`, teal `#26B6B0` (non-text only), text `#252238`. Never add `dark:` classes or a theme toggle.
-- **Docs:** `docs/ASSESSMENT_DECISIONS.md` (D-xx decisions), `docs/TECHNICAL_PLAN.md`, `docs/CODING_STANDARDS.md` and `docs/CODEBASE_SIMPLIFICATION_AUDIT.md`. `docs/REPO_STRUCTURE.md` describes a Next.js layout (adapt it to Vite), and `docs/EXISTING_REPO_AUDIT.md` audits `../MedexTask`. `../MedexTask` is a separate older project: never read from it or modify it.
+- **Docs:** `README.md` is the submitted, high-level overview for reviewers: implementation, decisions, requirement coverage and limitations, not an exhaustive reference. `docs/` is **git-ignored**: detailed notes for the user's own study and interview preparation that exist only locally (decision log `docs/ASSESSMENT_DECISIONS.md` with D-xx ids, feature docs, `TECHNICAL_PLAN.md`, `CODING_STANDARDS.md`). Use them when present, but never link to them from tracked files. `../MedexTask` is a separate older project: never read from it or modify it.
 
 ## Source of truth
 The briefs and fixtures define the requirements:
@@ -36,7 +36,7 @@ The briefs and fixtures define the requirements:
 - `assessment-briefs/task2_cart_split_checkout.pdf` with `data/task2-cart.json`
 - `assessment-briefs/task3_booking_time_zones.pdf` with `data/task3-booking.json`
 
-Read the relevant brief before changing a feature's behaviour. Never silently invent or simplify a requirement; record ambiguities in `docs/ASSESSMENT_DECISIONS.md`.
+Read the relevant brief before changing a feature's behaviour. Never silently invent or simplify a requirement; record ambiguities and decisions in `README.md` (and the local decision log if present).
 
 ## Correctness rules (do not simplify away)
 **Task 1, Service Explorer**
@@ -76,19 +76,19 @@ Read the relevant brief before changing a feature's behaviour. Never silently in
 - Reuse what's installed before writing custom code, and don't add a dependency for trivial logic.
 - Strict TypeScript with no unjustified `any`. Use `unknown` and Zod at boundaries, and discriminated unions over boolean flags.
 - Delete dead code; don't leave it commented out or re-exported "just in case".
-- Full standards: `docs/CODING_STANDARDS.md`. Topic skills in `.claude/skills/` (frontend-design, react-best-practices, clean-code, debugging, testing) load when relevant.
+- Topic skills in `.claude/skills/` (frontend-design, react-best-practices, clean-code, debugging, testing) load when relevant.
 
 ## Workflow
 1. Check `git status` first and preserve user changes. Before editing, state which files will change and which tests will be added.
 2. Work in small, feature-sized slices. Put rules in pure `domain/` functions with tests.
 3. After each slice, run the focused tests, then `npm run typecheck`, `npm run lint`, `npm test` and `npm run build`. Report real output only; never claim a check, accessibility result or performance figure that wasn't measured.
-4. Update `README.md` and `docs/ASSESSMENT_DECISIONS.md` when behaviour, setup or limitations change.
+4. Update `README.md` when behaviour, setup, decisions or limitations change: it is the only documentation in the repository.
 5. Never commit `.env`, credentials, `dist/`, `node_modules/` or coverage. Commit only when asked.
 
 
-## Documentation Maintenance
+## Documentation Maintenance (local `docs/` notes)
 
-Documentation must remain synchronized with the actual implementation.
+The `docs/` folder is git-ignored personal reference material. When it exists locally, keep it synchronized with the implementation, but never link to it from tracked files (README, `mock-api/README.md`, skills). The README rules below take priority.
 
 Whenever a feature is created, modified, refactored or removed:
 
@@ -96,8 +96,8 @@ Whenever a feature is created, modified, refactored or removed:
 2. Document important implementation changes.
 3. Update execution flows and diagrams when necessary.
 4. Update API and database documentation when contracts or schemas change.
-5. Update FEATURE_INDEX.md.
-6. Update PROJECT_DOCUMENTATION.md when its structure or index changes.
+5. Update `docs/features/FEATURE_INDEX.md`.
+6. Update `docs/PROJECT_DOCUMENTATION.md` when its structure or index changes.
 
 For new features, document:
 - Purpose and functionality.
@@ -111,7 +111,7 @@ For new features, document:
 Do not document hypothetical behavior.
 Do not create duplicate documentation.
 Do not modify source code just to add documentation.
-Do not regenerate the PDF after every small change. Regenerate it when a consolidated documentation release is requested.
+Do not regenerate `docs/PROJECT_DOCUMENTATION.pdf` after every small change. Regenerate it when a consolidated documentation release is requested.
 
 ## README Maintenance — Mandatory
 

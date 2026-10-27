@@ -8,7 +8,7 @@ This repository contains all three take-home tasks, implemented in one React + T
 | 2. Multi-provider cart and split checkout | `/cart` | [task2_cart_split_checkout.pdf](assessment-briefs/task2_cart_split_checkout.pdf) |
 | 3. Appointment booking across time zones | `/booking` | [task3_booking_time_zones.pdf](assessment-briefs/task3_booking_time_zones.pdf) |
 
-**Run:** `npm install && npm run dev` (Node ≥ 20). This starts the mock API on `:4010` plus the Vite dev server. Every API response takes a fixed 1.5 s so the loading states are visible, and each feature page has a **Refresh** button above its list that re-requests the data with the current filters. Details: [docs/development/SETUP.md](docs/development/SETUP.md).
+**Run:** `npm install && npm run dev` (Node ≥ 20). This starts the mock API on `:4010` plus the Vite dev server. Every API response takes a fixed 1.5 s so the loading states are visible, and each feature page has a **Refresh** button above its list that re-requests the data with the current filters. Scripts and project layout: [§10](#10-project-structure-and-scripts).
 
 ---
 
@@ -102,15 +102,35 @@ flowchart TB
 | Conflicts and unknown outcomes | 409 → selections kept (in the URL) plus the 3 nearest free times and the next available day. Network, 502 or 504 → only "Check again" with the same key | [`domain/submit.ts`](src/features/appointment-booking/domain/submit.ts), [`domain/alternatives.ts`](src/features/appointment-booking/domain/alternatives.ts), [`useBookingSubmit.ts`](src/features/appointment-booking/hooks/useBookingSubmit.ts) |
 | Loading and Refresh | Fixed 1.5 s mock response delay. [`RefreshButton`](src/shared/ui/RefreshButton.tsx) above each feature page's list calls `refetchQueries` for that page's query key; the URL filters and booking selections are re-applied to the fresh data | [`server.cjs`](mock-api/server.cjs), [`RefreshButton.tsx`](src/shared/ui/RefreshButton.tsx), [`ResultsToolbar.tsx`](src/features/service-explorer/components/ResultsToolbar.tsx) |
 
-## 5. Important technical decisions
+### 4.1 Checkout state machine
 
-The full log is in [docs/ASSESSMENT_DECISIONS.md](docs/ASSESSMENT_DECISIONS.md) (D-01 to D-24).
+Each cart group is checked out on its own, as a separate order. The state is kept in [`useCheckout.ts`](src/features/cart-checkout/hooks/useCheckout.ts) and the transitions are pure functions in [`domain/checkout.ts`](src/features/cart-checkout/domain/checkout.ts) (`classifyCheckoutError`, `shouldReuseKey`, `reconcilePlan`).
+
+```mermaid
+stateDiagram-v2
+  [*] --> submitting: intent + idempotency key saved to localStorage
+  submitting --> placed: 201
+  submitting --> failed_new_key: 402 declined / 409 conflict / 400·422 blocked
+  submitting --> failed_same_key: 5xx server error
+  submitting --> unknown: network / 502 / 504 / lost response
+  unknown --> submitting: "Check again" or page reload (same key)
+  failed_same_key --> submitting: "Try again" (same key)
+  failed_new_key --> submitting: "Try again" (new key)
+  placed --> placed: poll GET /api/orders/{orderId} until paid
+```
+
+- **The intent is written before the request leaves.** If the tab closes mid-request, the next visit replays the `submitting` and `unknown` records with their saved key (`reconcile`).
+- **The server makes retries safe.** The same key with the same payload returns the original order, and the same key with a different payload is rejected with 409. So neither a replay nor a retry can create a second order.
+- **Keys are reused deliberately.** A new key is used only when no order can exist (402, 409, 422). "Check out all" runs the ready groups one after another, and one failure doesn't stop the others or touch orders already placed.
+- **Card orders settle later.** They are polled every 1.5 s (TanStack Query `refetchInterval`) until the mock marks them paid, about 2.5 s after creation. Pay-at-clinic orders stay "Booked — pay at the clinic".
+
+## 5. Important technical decisions
 
 - **Rules in pure functions, tested where they live.** 119 of the 149 tests target `domain/` or `mock-api/lib/` functions. Components stay thin, so a teammate can change a rule in one file.
 - **Load once and compute in the browser (Task 1).** The brief needs live counts over all 3,200 services, so the three collections load once and are indexed (prices and search text are precomputed). Each filter change is then one O(services × active facets) pass, memoised in `ExplorerPage`. Typing goes through `useDeferredValue`, and the URL is written 300 ms after typing stops.
 - **Validate at the boundary, tolerate per record.** The explorer schemas fall back field by field, and only records missing an identity field are dropped and reported. Booking schemas are strict, because the UI trusts those values. A cart `product` is validated per line, so `{}` becomes "unavailable" instead of an error.
 - **Currency is part of every amount** (`Money = { amount, currency }`). The price filter only exists together with a chosen currency (`cur`); without one, price sorts are sectioned by currency.
-- **Zero-count facet options are disabled, not hidden** (D-06). The layout stays stable and customers can see the option exists, and a selected option is never disabled, so it can always be undone.
+- **Zero-count facet options are disabled, not hidden.** The layout stays stable and customers can see the option exists, and a selected option is never disabled, so it can always be undone.
 - **Double-charge prevention.** The server is idempotent per key and payload. The client reuses a key only when an order might exist (unknown outcome or 5xx) and uses a new key after 402, 409 or 422. The intent is on disk before the request leaves.
 - **Availability is computed on the server, displayed by the client.** One implementation of the slot rules means the picker and the booking check can't disagree. The client never does offset arithmetic.
 - **Tests run the real mock.** [`src/test/mockServer.ts`](src/test/mockServer.ts) starts `createApp({ now })` on a random port with a frozen, advanceable clock, so there's no hand-written fake server to drift out of sync.
@@ -138,7 +158,7 @@ Status is based on the source code. "Partial" means part of the requirement has 
 | Grouped by provider, rating or "No ratings yet", ≤ 3 services, "View all N" (filtered count) | Implemented | [`ProviderCard.tsx`](src/features/service-explorer/components/ProviderCard.tsx), [`grouping.ts`](src/features/service-explorer/domain/grouping.ts) |
 | Filters: type, category → subcategory tree, searchable provider, city or country, price range, home test | Implemented | [`FilterPanel.tsx`](src/features/service-explorer/components/FilterPanel.tsx), [`facets.ts`](src/features/service-explorer/domain/facets.ts) |
 | Free-text search over title, provider and category | Implemented | `searchText` in [`normalize.ts`](src/features/service-explorer/domain/normalize.ts) |
-| Live facet counts; zero options disabled (justified, D-06) | Implemented | [`facets.ts`](src/features/service-explorer/domain/facets.ts), [`facets.test.ts`](src/features/service-explorer/domain/facets.test.ts) |
+| Live facet counts; zero options disabled (justified in §5) | Implemented | [`facets.ts`](src/features/service-explorer/domain/facets.ts), [`facets.test.ts`](src/features/service-explorer/domain/facets.test.ts) |
 | Final price, struck original, honest wellness price | Implemented | [`pricing.ts`](src/features/service-explorer/domain/pricing.ts), [`PriceTag.tsx`](src/features/service-explorer/components/PriceTag.tsx) |
 | Price range never mixes currencies | Implemented | `price` predicate in [`facets.ts`](src/features/service-explorer/domain/facets.ts), [`PriceRange.tsx`](src/features/service-explorer/components/PriceRange.tsx) |
 | Sorting: relevance (defined), price both ways, rating | Implemented | [`grouping.ts`](src/features/service-explorer/domain/grouping.ts) |
@@ -146,7 +166,7 @@ Status is based on the source code. "Partial" means part of the requirement has 
 | Mobile drawer with pending "Show N results" | Implemented | [`FilterDrawer.tsx`](src/features/service-explorer/components/FilterDrawer.tsx) |
 | Performance: ~100 ms per filter change, typing never blocks, no layout shift | **Partial** | The engine is measured in jsdom only (see §7). Non-blocking input relies on `useDeferredValue`, and the skeletons have the same footprint as the cards. No in-browser profile or layout-shift measurement was recorded |
 | States: skeletons, empty with a way out, retry | Implemented | [`ResultStates.tsx`](src/features/service-explorer/components/ResultStates.tsx), [`ErrorState.tsx`](src/shared/ui/ErrorState.tsx) |
-| Mock API able to fail on demand | **Not implemented** (removed, D-25) | The error state and Retry exist and are tested, but a reviewer can't trigger them |
+| Mock API able to fail on demand | **Not implemented** (removed, see §8) | The error state and Retry exist and are tested, but a reviewer can't trigger them |
 | Keyboard use; result-count changes announced | Implemented (not tested with a screen reader) | `role="status"` in [`ResultsToolbar.tsx`](src/features/service-explorer/components/ResultsToolbar.tsx) |
 | Duplicate `ultrasound` slugs | Implemented | Ids everywhere; the type is shown next to the title |
 
@@ -154,8 +174,8 @@ Status is based on the source code. "Partial" means part of the requirement has 
 
 | Requirement | Status | Evidence |
 |---|---|---|
-| Mock endpoints, idempotent `POST /checkout` | Implemented (under `/api`) | [`server.cjs`](mock-api/server.cjs), [`cart.cjs`](mock-api/lib/cart.cjs), [MOCK_API_CONTRACTS.md](docs/MOCK_API_CONTRACTS.md) |
-| Latency and failure injection on demand for a specific call | **Not implemented** (removed, D-25): fixed 1.5 s delay only | Partial-failure, decline and lost-response paths are covered by tests ([`useCheckout.test.ts`](src/features/cart-checkout/hooks/useCheckout.test.ts)) but can't be shown in the UI |
+| Mock endpoints, idempotent `POST /checkout` | Implemented (under `/api`) | [`server.cjs`](mock-api/server.cjs), [`cart.cjs`](mock-api/lib/cart.cjs), endpoint list in [`mock-api/README.md`](mock-api/README.md) |
+| Latency and failure injection on demand for a specific call | **Not implemented** (removed, see §8): fixed 1.5 s delay only | Partial-failure, decline and lost-response paths are covered by tests ([`useCheckout.test.ts`](src/features/cart-checkout/hooks/useCheckout.test.ts)) but can't be shown in the UI |
 | Grouped by type, per-currency subtotals, no cross-currency total, helpful summary | Implemented | [`cart.ts`](src/features/cart-checkout/domain/cart.ts), [`CartSummary.tsx`](src/features/cart-checkout/components/CartSummary.tsx) |
 | Optimistic quantities, rollback with reason, 5 quick taps don't race | Implemented | [`quantityQueue.ts`](src/features/cart-checkout/domain/quantityQueue.ts) + tests |
 | Wellness needs a duration, never counted as 0 | Implemented | `needs-duration` in [`cart.ts`](src/features/cart-checkout/domain/cart.ts) |
@@ -166,14 +186,14 @@ Status is based on the source code. "Partial" means part of the requirement has 
 | Guest merge with every change explained | Implemented | [`cart.cjs`](mock-api/lib/cart.cjs) `mergeGuestCart`, [`GuestMergeNotice.tsx`](src/features/cart-checkout/components/GuestMergeNotice.tsx) |
 | Loading, empty and offline states; keyboard; focus on remove and checkout changes | Implemented | [`CartPage.tsx`](src/features/cart-checkout/components/CartPage.tsx), [`CheckoutStatus.tsx`](src/features/cart-checkout/components/CheckoutStatus.tsx) |
 | Slow-network state | **Partial** | Per-line "Saving…" and "Placing order…" exist, but the cart has no "still loading" hint like the explorer and booking pages have |
-| Checkout state machine documented | Implemented | [docs/features/checkout.md](docs/features/checkout.md) |
+| Checkout state machine documented | Implemented | [§4.1](#41-checkout-state-machine) |
 
 **Task 3: Booking across time zones**
 
 | Requirement | Status | Evidence |
 |---|---|---|
 | Mock endpoints | Implemented (under `/api`; slots return `state: 'booked'` rather than an `isBooked` boolean) | [`server.cjs`](mock-api/server.cjs), [`booking.cjs`](mock-api/lib/booking.cjs) |
-| 409, latency and failure on demand | **Partial** (D-25) | A real 409 happens when the slot was taken (for example, two tabs); latency is a fixed 1.5 s; 500 and network failures can't be injected |
+| 409, latency and failure on demand | **Partial** (see §8) | A real 409 happens when the slot was taken (for example, two tabs); latency is a fixed 1.5 s; 500 and network failures can't be injected |
 | Every time-zone value handled; country fallback documented | Implemented | Table in §5, [`booking.test.mjs`](mock-api/lib/booking.test.mjs) |
 | `dayOffset` from the provider's today, turned into dates at start-up | Implemented | `createBookingState` |
 | 90-day calendar; unavailable days say why | Implemented | `buildCalendar`, [`CalendarGrid.tsx`](src/features/appointment-booking/components/CalendarGrid.tsx) |
@@ -230,7 +250,7 @@ These checks were run on 27 October 2026, against the current code:
 - 409 keeps the selections
 - reschedule not blocked by its own slot
 
-Per-file detail: [docs/testing/TEST_COVERAGE.md](docs/testing/TEST_COVERAGE.md).
+**Where the 149 tests sit:** 119 are rules tests: explorer pricing, facets, grouping and URL state; cart, checkout and the quantity queue; booking time and calendar; and the mock API's cart and booking rules in `mock-api/lib/*.test.mjs`. 20 are page tests against the real mock (explorer, cart, booking). The rest are hooks (`useCheckout`, `useQuantityQueue`), `RefreshButton` and an architecture rule that app code never imports `data/*.json`.
 
 **Not verified:**
 - no in-browser performance profile
@@ -242,7 +262,7 @@ Per-file detail: [docs/testing/TEST_COVERAGE.md](docs/testing/TEST_COVERAGE.md).
 
 - **Booking keys aren't persisted.** The booking idempotency key is kept in memory only. A reload during an "unknown" booking outcome loses it, whereas checkout persists its intent. With more time I'd store it like the checkout intent.
 - **Lost quantity updates.** After a lost quantity update (502), the line rolls back to the last confirmed value even though the server may have applied the change. The next cart refresh shows the true value.
-- **No failure simulation (D-25).** Late in the project, the mock's on-demand failures and the DevPanel were removed in favour of a fixed 1.5 s delay. The app still handles errors, 409s and unknown outcomes (and tests cover them), but reviewers can't trigger them. This no longer meets the briefs' "fail on demand" requirement.
+- **No failure simulation.** Late in the project, the mock's on-demand failures and the DevPanel were removed in favour of a fixed 1.5 s delay. The app still handles errors, 409s and unknown outcomes (and tests cover them), but reviewers can't trigger them. This no longer meets the briefs' "fail on demand" requirement.
 - **Late payment failure.** The client shows "Payment failed" for a card payment that fails after the order is created, with no in-app way to pay again. The mock no longer produces this status.
 - **No catalogue screen.** There's no "add to cart" page (not in the brief); the cart starts from the fixture. There's also no real login: the guest merge is triggered by a button.
 - **Calendar scope.** The calendar shows availability for the chosen specialist only, and alternatives are same-day times plus the next available day.
@@ -251,20 +271,35 @@ Per-file detail: [docs/testing/TEST_COVERAGE.md](docs/testing/TEST_COVERAGE.md).
 
 ## 9. Use of AI tools
 
-The implementation was built with **Claude Code**, driven by the phased prompts in [`prompts/`](prompts) (audit → architecture → Task 1 → Task 2 → Task 3 → review → UI redesign → simplification). Project rules are in [`CLAUDE.md`](CLAUDE.md), and Claude Code skills are in [`.claude/skills/`](.claude/skills). Decisions were recorded as they were made in [docs/ASSESSMENT_DECISIONS.md](docs/ASSESSMENT_DECISIONS.md). The documentation in `docs/`, including this README, was also generated with Claude Code from the source and checked against it.
+The implementation was built with **Claude Code**, driven by the phased prompts in [`prompts/`](prompts) (audit → architecture → Task 1 → Task 2 → Task 3 → review → UI redesign → simplification). Project rules are in [`CLAUDE.md`](CLAUDE.md), and Claude Code skills are in [`.claude/skills/`](.claude/skills). This README was also written with Claude Code from the source and checked against it. More detailed study notes were generated for my own reference and are kept out of the repository.
 
-## 10. Detailed technical documentation
+## 10. Project structure and scripts
 
-Start at [docs/PROJECT_DOCUMENTATION.md](docs/PROJECT_DOCUMENTATION.md). A consolidated PDF is at [docs/PROJECT_DOCUMENTATION.pdf](docs/PROJECT_DOCUMENTATION.pdf).
+```text
+src/
+  app/                      App.tsx (QueryClient + lazy routes), Layout, HomePage, NotFoundPage
+  features/
+    service-explorer/       api/ · domain/ (pricing, normalize, facets, grouping, urlState) · hooks/ · components/
+    cart-checkout/          api/ · domain/ (cart, checkout, quantityQueue, merge, storage) · hooks/ · components/
+    appointment-booking/    api/ · domain/ (time, calendar, alternatives, submit) · hooks/ · components/
+  shared/                   api/client.ts (apiRequest, ApiError) · lib/ (money, hooks) · ui/ (ErrorState, EmptyState,
+                            OfflineBanner, NativeSelect, RefreshButton, …)
+  components/ui/            shadcn/ui primitives
+  test/                     mockServer.ts (real mock on a random port, frozen clock, failNext), fixture helpers
+mock-api/                   server.cjs (routes, 1.5 s delay) · lib/cart.cjs · lib/booking.cjs (+ tests) · README.md
+data/                       the three supplied JSON fixtures (served only through the mock API)
+assessment-briefs/          the three task PDFs
+scripts/                    dev.mjs (mock API + Vite together) · check-api.mjs (smoke check)
+```
 
-| Topic | Documents |
+| Script | What it does |
 |---|---|
-| Architecture | [System overview](docs/architecture/SYSTEM_OVERVIEW.md) · [Architecture](docs/architecture/ARCHITECTURE.md) · [Folder structure](docs/architecture/FOLDER_STRUCTURE.md) |
-| Data flow | [Data flow](docs/architecture/DATA_FLOW.md) · [State management](docs/implementation/STATE_MANAGEMENT.md) |
-| Features | [Feature index](docs/features/FEATURE_INDEX.md) · [Explorer](docs/features/service-explorer.md) · [Cart](docs/features/cart.md) · [Checkout](docs/features/checkout.md) · [Guest merge](docs/features/guest-cart-merge.md) · [Booking](docs/features/appointment-booking.md) · [Time zones](docs/features/time-zones.md) · [Loading and Refresh](docs/features/loading-and-refresh.md) |
-| Components | [Components](docs/implementation/COMPONENTS.md) · [Frontend](docs/implementation/FRONTEND.md) · [Routing](docs/implementation/ROUTING.md) |
-| API integration | [API integration](docs/implementation/API_INTEGRATION.md) · [Mock API contracts](docs/MOCK_API_CONTRACTS.md) · [Error handling](docs/implementation/ERROR_HANDLING.md) |
-| Data | [Schemas](docs/database/DATABASE_SCHEMA.md) · [Models and validation](docs/database/DATA_MODELS.md) · [Relationships](docs/database/RELATIONSHIPS.md) |
-| Testing | [Strategy](docs/testing/TEST_STRATEGY.md) · [Coverage](docs/testing/TEST_COVERAGE.md) |
-| Decisions | [Design decisions](docs/architecture/DESIGN_DECISIONS.md) · [Decision log](docs/ASSESSMENT_DECISIONS.md) |
-| Walkthroughs | [Feature demo scripts](docs/interview/FEATURE_WALKTHROUGHS.md) · [Technical Q&A](docs/interview/TECHNICAL_QA.md) |
+| `npm run dev` | Mock API on `:4010` and Vite together (Vite proxies `/api` and `/health` to `MOCK_API_URL`) |
+| `npm test` | Vitest (jsdom), all 149 tests |
+| `npm run typecheck` / `npm run lint` / `npm run build` | `tsc -b` / oxlint / `tsc -b && vite build` |
+| `npm run check:api` | Smoke-checks a running mock API |
+
+The API lives under `/api` in [`mock-api/server.cjs`](mock-api/server.cjs), and every endpoint is listed in [`mock-api/README.md`](mock-api/README.md). In outline:
+- **Task 1:** three read-only collections.
+- **Task 2:** cart, line updates, guest merge, idempotent checkout and order status.
+- **Task 3:** providers, a 90-day calendar, slots, and create or reschedule booking, with a 409 `slot-taken` plus alternatives.

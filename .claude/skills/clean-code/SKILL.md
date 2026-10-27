@@ -26,7 +26,7 @@ The goal is the simplest maintainable code that keeps every assessment rule corr
 | Time-zone math (mock) | `date-fns-tz` in `mock-api/`; the browser uses `Intl.DateTimeFormat` |
 
 - Add a new dependency only for genuinely hard problems, and pin an exact version.
-- Say why in `docs/ASSESSMENT_DECISIONS.md`. React Day Picker and React Hook Form were already evaluated and rejected; see `docs/CODEBASE_SIMPLIFICATION_AUDIT.md` §11.
+- Say why in the README's technical decisions section. React Day Picker (it would make unavailable calendar days unfocusable) and React Hook Form (only one small form) were already evaluated and rejected.
 
 ## Structure
 - Business rules (money, facets, cart, checkout, slots, time zones) live in pure `domain/` functions with no React and no fetch. UI calls them, and they are never duplicated in components.

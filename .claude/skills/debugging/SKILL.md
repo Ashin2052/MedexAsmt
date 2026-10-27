@@ -18,7 +18,7 @@ Find the root cause before changing code. Never fix a symptom by loosening a sch
 ## 2. Isolate the layer
 Follow the data from fixture to screen and find the first point where it is wrong:
 1. **Fixture** (`data/*.json`): is the input what you assume? Check the odd records (empty products, `ultrasound` slug duplicates, six time-zone formats).
-2. **Mock** (`mock-api/lib/*.cjs`): does the route return the contract in `docs/MOCK_API_CONTRACTS.md`? Mock state is in memory, so restart it to rule out stale state.
+2. **Mock** (`mock-api/lib/*.cjs`): does the route return the contract in `mock-api/README.md` (also the README's API endpoint table)? Mock state is in memory, so restart it to rule out stale state.
 3. **API boundary** (`features/*/api/`): a Zod parse error means the contract and schema disagree. Fix the side that's wrong; don't use `.passthrough()` or `any` to silence it. Check `ApiError.kind` and `status`.
 4. **Domain** (`features/*/domain/`): call the pure function with the exact input.
 5. **React**: stale query data (key or invalidation), effects firing twice (StrictMode), derived values stored in state, missing `key`, or a race between overlapping requests.
