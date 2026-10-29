@@ -10,6 +10,14 @@ This repository contains all three take-home tasks, implemented in one React + T
 
 **Run:** `npm install && npm run dev` (Node ≥ 20). This starts the mock API on `:4010` plus the Vite dev server. Every API response takes a fixed 1.5 s so the loading states are visible, and each feature page has a **Refresh** button above its list that re-requests the data with the current filters. To see slow, failing, conflicting or lost requests, open any page with a `?mock=` rule ([§4.2](#42-simulating-slow-and-failing-calls)). Scripts and project layout: [§10](#10-project-structure-and-scripts).
 
+**Demo:** a screen recording of all three tasks is in [`demoassets/`](demoassets) ([watch the walkthrough video](demoassets/Screencast%20From%202026-10-28%2023-43-10.mp4)), along with these screenshots:
+
+| Home | Service Explorer (`/explorer`) |
+|---|---|
+| ![Home page](demoassets/Screenshot%20From%202026-10-29%2007-18-10.png) | ![Service Explorer with facet counts and provider groups](demoassets/Screenshot%20From%202026-10-29%2007-18-16.png) |
+| **Cart (`/cart`)** | **Booking (`/booking`)** |
+| ![Cart grouped by service type with per-currency totals](demoassets/Screenshot%20From%202026-10-29%2007-18-26.png) | ![Booking provider list with time zones and upcoming appointment](demoassets/Screenshot%20From%202026-10-29%2007-18-21.png) |
+
 ---
 
 ## 1. Project overview
