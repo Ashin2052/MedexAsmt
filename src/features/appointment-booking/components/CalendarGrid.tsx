@@ -104,7 +104,7 @@ export function CalendarGrid({ days, selected, onSelect, onUnavailable }: Calend
                 if (!date || !day) return <td key={date ?? `empty-${i}`} />
                 const isSelected = date === selected
                 const available = day.status === 'available'
-                const label = `${formatDate(date, 'long')}, ${available ? `available, ${day.freeCount} ${day.freeCount === 1 ? 'time' : 'times'}` : `${DAY_STATUS_LABELS[day.status].toLowerCase()}: ${day.message ?? ''}`}`
+                const label = `${formatDate(date, 'long')}${date === first ? ', today at the provider' : ''}, ${available ? `available, ${day.freeCount} ${day.freeCount === 1 ? 'time' : 'times'}` : `${DAY_STATUS_LABELS[day.status].toLowerCase()}: ${day.message ?? ''}`}`
                 return (
                   <td key={date} role="gridcell" aria-selected={isSelected} className="p-0.5">
                     <button
@@ -121,10 +121,10 @@ export function CalendarGrid({ days, selected, onSelect, onUnavailable }: Calend
                       className={cn(
                         'flex h-11 w-full flex-col items-center justify-center rounded-md text-sm tabular-nums transition-colors sm:h-12',
                         available && !isSelected && 'font-semibold text-foreground hover:bg-secondary',
-                        available && 'after:mt-0.5 after:size-1 after:rounded-full after:bg-brand-teal',
-                        !available && 'cursor-not-allowed text-muted-foreground/60 line-through decoration-muted-foreground/40',
+                        available && 'after:mt-0.5 after:size-1 after:rounded-full after:bg-success',
+                        !available && 'cursor-not-allowed text-muted-foreground line-through decoration-muted-foreground/60',
                         isSelected && 'bg-primary font-semibold text-primary-foreground after:bg-primary-foreground',
-                        date === first && !isSelected && 'ring-1 ring-primary/40',
+                        date === first && !isSelected && 'ring-1 ring-primary',
                       )}
                     >
                       {Number(date.slice(8))}
@@ -138,11 +138,11 @@ export function CalendarGrid({ days, selected, onSelect, onUnavailable }: Calend
       </table>
       <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">
-          <span aria-hidden="true" className="size-1.5 rounded-full bg-brand-teal" /> Has free times
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-success" /> Has free times
         </span>
         <span className="line-through">12</span> Unavailable (select it to see why)
         <span className="inline-flex items-center gap-1.5">
-          <span aria-hidden="true" className="size-3 rounded-sm ring-1 ring-primary/40" /> Today at the provider
+          <span aria-hidden="true" className="size-3 rounded-sm ring-1 ring-primary" /> Today at the provider
         </span>
       </p>
     </div>

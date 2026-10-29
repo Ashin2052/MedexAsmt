@@ -190,7 +190,9 @@ function buildDay(state, providerId, specialistId, date, people = 1, options = {
 
   const zone = provider.timezone.zone;
   const live = zonedNow(zone, now === -Infinity ? 0 : now);
-  const today = provider.today;
+  // "Today" is the provider's live date, so the 90-day window rolls over at the
+  // provider's midnight even if the mock keeps running (-Infinity: seeding).
+  const today = now === -Infinity ? provider.today : live.date;
   const offset = daysBetween(today, date);
   const consultation = specialist.consultation;
   const schedule = provider.daySchedules ? provider.daySchedules[weekdayName(date)] : undefined;
@@ -206,7 +208,7 @@ function buildDay(state, providerId, specialistId, date, people = 1, options = {
     slots: [],
   };
 
-  if (offset < 0 || (now !== -Infinity && date < live.date)) return { ...base, status: 'past', message: 'This day has already passed at the provider.' };
+  if (offset < 0) return { ...base, status: 'past', message: 'This day has already passed at the provider.' };
   if (offset >= BOOKING_WINDOW_DAYS) return { ...base, status: 'outside-window', message: `Bookings open ${BOOKING_WINDOW_DAYS} days ahead.` };
   const closure = state.closures.find((c) => c.providerId === provider.id && c.date === date);
   if (closure) return { ...base, status: 'closure', message: `Closed: ${closure.reason || 'provider closure'}.` };
@@ -284,9 +286,10 @@ function buildDay(state, providerId, specialistId, date, people = 1, options = {
 function buildCalendar(state, providerId, specialistId, people = 1, options = {}) {
   const provider = findProvider(state, providerId);
   if (!provider) return null;
+  const today = zonedNow(provider.timezone.zone, options.now ?? Date.now()).date;
   const days = [];
   for (let i = 0; i < BOOKING_WINDOW_DAYS; i += 1) {
-    const date = addDays(provider.today, i);
+    const date = addDays(today, i);
     const day = buildDay(state, provider.id, specialistId, date, people, options);
     days.push({
       date,
@@ -295,7 +298,7 @@ function buildCalendar(state, providerId, specialistId, people = 1, options = {}
       freeCount: day.slots.filter((s) => s.state === 'free' && !s.isCurrentBooking).length,
     });
   }
-  return { providerId: provider.id, timezone: provider.timezone.zone, today: provider.today, days };
+  return { providerId: provider.id, timezone: provider.timezone.zone, today, days };
 }
 
 // --------------------------------------------------------------- bookings
@@ -309,6 +312,20 @@ function release(state, booking) {
     const key = bookedKey(booking.providerId, booking.specialistId, booking.date, time);
     if (state.booked.get(key) === booking.bookingId) state.booked.delete(key);
   }
+}
+
+/**
+ * Simulate another customer booking the requested time just before this
+ * request arrives (fault injection). For a reschedule, `bookingId` supplies
+ * the provider and specialist. A time held by any booking is left alone.
+ */
+function takeSlot(state, body, bookingId = null) {
+  const current = bookingId ? state.bookings.get(bookingId) : null;
+  const provider = findProvider(state, current ? current.providerId : body && body.providerId);
+  const specialistId = current ? current.specialistId : body && body.specialistId;
+  if (!provider || !specialistId || !body || !isDateString(body.date) || !body.startTime) return;
+  const key = bookedKey(provider.id, specialistId, body.date, body.startTime);
+  if (!state.booked.has(key)) state.booked.set(key, 'seed');
 }
 
 function conflict(state, day, startTime, message) {
@@ -393,13 +410,13 @@ function describeBooking(state, booking) {
   };
 }
 
-function describeProvider(provider) {
+function describeProvider(provider, now = Date.now()) {
   return {
     id: provider.id,
     name: provider.name,
     country: provider.country,
     timezone: provider.timezone,
-    today: provider.today,
+    today: zonedNow(provider.timezone.zone, now).date,
     daySchedules: provider.daySchedules,
     specialists: provider.specialists,
   };
@@ -418,6 +435,7 @@ module.exports = {
   findProvider,
   buildDay,
   buildCalendar,
+  takeSlot,
   createBooking,
   rescheduleBooking,
   describeBooking,

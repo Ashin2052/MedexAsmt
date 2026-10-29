@@ -72,7 +72,9 @@ export function ExplorerPage() {
   const page = clampPage(canonical.page, groups.length)
   const totalPages = countPages(groups.length)
   const pageGroups = paginate(groups, page)
-  const isTyping = search.value !== deferredQuery
+  // Dim stale results only when they lag noticeably; filtering usually
+  // catches up within a frame, and dimming every keystroke flickers.
+  const resultsStale = useDelayedFlag(search.value !== deferredQuery, 200)
   const activeFilters = index ? describeActiveFilters({ ...canonical, q: '' }, index) : []
   const showCurrencySections = (effective.sort === 'price_asc' || effective.sort === 'price_desc') && !effective.currency
   const filterCount = activeFilterCount(canonical)
@@ -97,6 +99,7 @@ export function ExplorerPage() {
 
   return (
     <>
+      <title>Explore services · MedEx</title>
       <section className="border-b bg-surface">
         <PageContainer className="py-10 sm:py-14">
           <p className="text-sm font-semibold tracking-wide text-brand-magenta uppercase">Explore services</p>
@@ -211,7 +214,7 @@ export function ExplorerPage() {
                 ) : resultCount === 0 ? (
                   <EmptyResults index={index} filters={effective} onChange={update} onClearAll={clearAll} />
                 ) : (
-                  <div aria-busy={isTyping} className={cn('transition-opacity', isTyping && 'opacity-60')}>
+                  <div aria-busy={resultsStale} className={cn('transition-opacity', resultsStale && 'opacity-60')}>
                     <ol className="grid gap-4">
                       {pageGroups.map((group, i) => {
                         const previous = pageGroups[i - 1]

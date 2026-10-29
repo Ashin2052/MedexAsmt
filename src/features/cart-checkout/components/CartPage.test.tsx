@@ -48,6 +48,7 @@ describe('CartPage', () => {
 
     const unavailable = groupSection('Unavailable items')
     expect(within(unavailable).getByText('Service no longer available')).toBeInTheDocument()
+    expect(document.title).toBe('Your cart · MedEx') // WCAG 2.4.2
   })
 
   it('merges the guest cart and reports every change', async () => {
@@ -95,6 +96,25 @@ describe('CartPage', () => {
     expect(within(summary).getByText('Health packages')).toBeInTheDocument()
     expect(within(summary).getByText(/Payment processing/)).toBeInTheDocument()
     expect(groupSection('Lab tests')).toBeInTheDocument()
+  })
+
+  it('check out all: when one group fails, says what succeeded and retries only the failed one', async () => {
+    const user = userEvent.setup()
+    renderCart()
+    await screen.findByRole('region', { name: 'Lab tests' })
+    server.failNext('POST', '/api/checkout', 500, 1) // the second group fails
+    await user.click(screen.getByRole('button', { name: /Check out all \d+ ready groups/ }))
+
+    const summary = screen.getByRole('complementary', { name: 'Summary' })
+    await waitFor(() => expect(summary).toHaveTextContent(/1 of 2 orders placed\. .+ was not ordered\. Your other orders are not affected\./))
+    const firstOrderBody = server.callsTo('POST', '/api/checkout')[0].body
+
+    await user.click(screen.getByRole('button', { name: /Try again/ }))
+    await waitFor(() => expect(within(summary).queryByText(/not ordered/)).not.toBeInTheDocument())
+    expect(server.cart().orders.size).toBe(2)
+    const posts = server.callsTo('POST', '/api/checkout')
+    expect(posts).toHaveLength(3) // first group once, failed group twice; no repeat of the placed one
+    expect(posts.slice(1).every((c) => JSON.stringify(c.body) !== JSON.stringify(firstOrderBody))).toBe(true)
   })
 
   it('increments quantity optimistically', async () => {

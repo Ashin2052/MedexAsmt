@@ -6,6 +6,8 @@
  *   The rules live in lib/cart.cjs and lib/booking.cjs.
  * - Every /api response waits a fixed RESPONSE_DELAY_MS, so loading states
  *   are visible the way they would be against a real server.
+ * - Opt-in fault injection through the `x-mock-fault` / `x-mock-delay`
+ *   headers, which the app sends only for ?mock= rules (see README).
  *
  * This is an in-memory assessment simulator, not a production backend.
  */
@@ -41,7 +43,36 @@ function createApp({ now = Date.now, delayMs = RESPONSE_DELAY_MS } = {}) {
 
   app.use(jsonServer.bodyParser);
 
-  app.use('/api', (_req, _res, next) => setTimeout(next, delayMs));
+  // `x-mock-delay` adds latency to one request (the app sends it for ?mock=…:slow).
+  app.use('/api', (req, _res, next) => setTimeout(next, delayMs + Math.min(Number(req.get('x-mock-delay')) || 0, 30000)));
+
+  // Opt-in fault injection: the app sends `x-mock-fault` only for requests a
+  // ?mock= rule targets (src/shared/api/mockFlags.ts). Without it nothing changes.
+  app.use('/api', (req, res, next) => {
+    const fault = String(req.get('x-mock-fault') || '');
+    if (fault === 'lost') {
+      // The request is handled (an order or booking may be created), then the reply is lost.
+      const end = res.end.bind(res);
+      res.end = () => {
+        const body = JSON.stringify({ message: 'Gateway timeout (simulated): the reply was lost after the request was handled.' });
+        res.statusCode = 504;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Content-Length', Buffer.byteLength(body));
+        return end(body);
+      };
+      return next();
+    }
+    const status = Number(fault);
+    if (!Number.isInteger(status) || status < 400 || status > 599) return next();
+    // A booking 409 is made real: another customer takes the time first, so the
+    // route answers with its usual message and genuine alternatives.
+    if (status === 409 && req.path.startsWith('/bookings') && (req.method === 'POST' || req.method === 'PUT')) {
+      const bookingId = req.method === 'PUT' ? req.path.split('/')[2] : null;
+      bookingLib.takeSlot(bookingState, req.body, bookingId);
+      return next();
+    }
+    error(res, status, `Simulated ${status} (mock flag).`);
+  });
 
   app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'medex-mock-api' }));
 
@@ -76,13 +107,13 @@ function createApp({ now = Date.now, delayMs = RESPONSE_DELAY_MS } = {}) {
   });
 
   app.get('/api/booking/providers', (_req, res) => {
-    res.json({ providers: bookingState.providers.map(bookingLib.describeProvider) });
+    res.json({ providers: bookingState.providers.map((p) => bookingLib.describeProvider(p, now())) });
   });
 
   app.get('/api/booking/providers/:id', (req, res) => {
     const provider = bookingLib.findProvider(bookingState, req.params.id);
     if (!provider) return error(res, 404, 'Provider not found.');
-    res.json({ provider: bookingLib.describeProvider(provider) });
+    res.json({ provider: bookingLib.describeProvider(provider, now()) });
   });
 
   // 90 days of availability with a reason for each unavailable day.

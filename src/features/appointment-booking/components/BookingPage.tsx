@@ -63,7 +63,7 @@ export function BookingPage() {
   const provider = providerQuery.data
 
   const { selection, update, customerZone, detectedZone } = useBookingSelection()
-  const submit = useBookingSubmit()
+  const submit = useBookingSubmit(rescheduleId ? `reschedule:${rescheduleId}` : `book:${params.providerId}`)
   const online = useOnlineStatus()
   const [dayNotice, setDayNotice] = useState<CalendarDay | null>(null)
   const peopleId = useId()
@@ -105,10 +105,12 @@ export function BookingPage() {
     else void submit.send({ kind: 'book', providerId: provider.id, specialistId: specialist.id, date, startTime: selectedSlot.startTime, people })
   }
 
+  const title = `${rescheduleId ? 'Reschedule your appointment' : provider ? `Book at ${provider.name}` : 'Book an appointment'} · MedEx`
   const pageError = existing.error ?? providerQuery.error
   if (pageError) {
     return (
       <PageContainer className="py-10">
+        <title>{title}</title>
         <ErrorState
           title="We couldn't load this booking page"
           message={describeApiError(pageError)}
@@ -123,6 +125,7 @@ export function BookingPage() {
 
   return (
     <>
+      <title>{title}</title>
       <section className="border-b bg-surface">
         <PageContainer className="py-8">
           <Button asChild variant="link" className="h-auto p-0">

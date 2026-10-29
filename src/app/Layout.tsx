@@ -1,6 +1,7 @@
 import { CalendarDays, HeartPulse, Search, ShoppingCart } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router'
 import { cn } from '@/lib/utils'
+import { MockFlagsBanner } from '@/shared/ui/MockFlagsBanner'
 import { PageContainer } from '@/shared/ui/PageContainer'
 
 const NAV_ITEMS = [
@@ -50,6 +51,7 @@ export function Layout() {
           </nav>
         </PageContainer>
       </header>
+      <MockFlagsBanner />
       <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
         <Outlet />
       </main>

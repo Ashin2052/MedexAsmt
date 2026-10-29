@@ -206,4 +206,36 @@ describe('buildCalendar', () => {
     expect(byDate['2026-10-27']).toMatchObject({ status: 'available' })
     for (const d of cal.days) if (d.status !== 'available') expect(d.message).toBeTruthy()
   })
+  it('rolls the window over at the provider’s midnight while the mock keeps running', () => {
+    const state = fresh() // started Mon 26 Oct, 10:00 Bangkok
+    const nextDay = Date.UTC(2026, 9, 26, 17, 30) // Tue 27 Oct, 00:30 Bangkok (still Mon 23:15 in Kathmandu)
+    const cal = lib.buildCalendar(state, 48, WONGSAKUL, 1, { now: nextDay })
+    expect(cal.today).toBe('2026-10-27')
+    expect(cal.days[0].date).toBe('2026-10-27')
+    expect(cal.days.at(-1).date).toBe('2027-01-24') // still 90 bookable days, not 89
+    expect(lib.buildDay(state, 48, WONGSAKUL, '2027-01-24', 1, { now: nextDay }).status).not.toBe('outside-window')
+    expect(lib.buildDay(state, 48, WONGSAKUL, '2026-10-26', 1, { now: nextDay }).status).toBe('past')
+    // Each provider has its own "today": Kathmandu has not reached midnight yet.
+    expect(lib.buildCalendar(state, 46, lib.findProvider(state, 46).specialists[0].id, 1, { now: nextDay }).today).toBe('2026-10-26')
+    expect(lib.describeProvider(lib.findProvider(state, 48), nextDay).today).toBe('2026-10-27')
+  })
+})
+
+describe('takeSlot (fault injection: someone else books first)', () => {
+  it('turns the next booking for that time into a real 409 with alternatives', () => {
+    const state = fresh()
+    const body = { providerId: 48, specialistId: WONGSAKUL, date: '2026-11-30', startTime: '10:40', idempotencyKey: 'k' }
+    lib.takeSlot(state, body)
+    const result = lib.createBooking(state, body, { now: NOW })
+    expect(result).toMatchObject({ status: 409, body: { code: 'slot-taken' } })
+    expect(result.body.alternatives.slice(0, 2)).toEqual(['10:00', '11:20'])
+  })
+
+  it('uses the booking’s own provider and specialist for a reschedule and never steals its own time', () => {
+    const state = fresh()
+    lib.takeSlot(state, { date: '2026-11-02', startTime: '10:40' }, EXISTING)
+    expect(lib.rescheduleBooking(state, EXISTING, { date: '2026-11-02', startTime: '10:40' }, { now: NOW }).status).toBe(409)
+    lib.takeSlot(state, { date: '2026-10-29', startTime: '11:20' }, EXISTING)
+    expect(lib.rescheduleBooking(state, EXISTING, { date: '2026-11-03', startTime: '10:00' }, { now: NOW }).status).toBe(200)
+  })
 })

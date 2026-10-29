@@ -47,7 +47,8 @@
   --discount-foreground: #ffffff;
   --star: #b45309;
   --border: #e7e4ef;
-  --input: #d9d5e3;
+  /* Form-control borders: ≥3:1 on white, surface and secondary (WCAG 1.4.11). */
+  --input: #857f96;
   --ring: var(--brand-purple);
   --radius: 0.625rem;
 }
@@ -105,6 +106,8 @@
   html {
     /* Native controls (selects, scrollbars, date inputs) render light too. */
     color-scheme: light;
+    /* Keep focused elements clear of the sticky header (WCAG 2.4.11). */
+    scroll-padding-top: 5rem;
   }
 
   body {

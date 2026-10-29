@@ -15,6 +15,17 @@ Optional environment variable: `MOCK_API_PORT` (default `4010`).
 
 Every `/api` response waits a fixed **1.5 seconds** (`RESPONSE_DELAY_MS` in `server.cjs`), so the app's loading skeletons are visible, as they would be against a real server. `/health` answers immediately. Tests create the app with `createApp({ delayMs: 0 })`.
 
+## Fault injection (opt-in, per request)
+
+Two request headers change one request. The app sends them only for `?mock=` rules (see the root README, §4.2), so without them nothing changes:
+
+- `x-mock-delay: <ms>` adds latency on top of the fixed delay (capped at 30 s).
+- `x-mock-fault: <status>` (400–599) answers with that status before the route runs, so nothing is created or changed.
+- `x-mock-fault: lost` runs the route (an order or booking may be created), then replaces the reply with a `504`. Replaying the same idempotency key returns the original result.
+- `x-mock-fault: 409` on `POST /api/bookings` or `PUT /api/bookings/:id` marks the requested time as taken by another customer (`takeSlot`), so the route answers with its real `slot-taken` 409 and genuine alternatives.
+
+Tests: `mock-api/server.test.mjs`.
+
 The server reads fixtures from `../data/`. Do not move or duplicate the original JSON files into this folder.
 
 ## Task 1 — JSON Server collections
@@ -52,6 +63,8 @@ The mock starts with the given cart and guest cart. A successful checkout remove
 
 If the time is no longer free, both write routes return `409 { code: "slot-taken", alternatives: ["HH:mm", …] }`. The same idempotency key with the same payload returns the first result.
 
+Fixture day offsets become dates when the mock starts. After that, "today" and the 90-day window follow each provider's live clock, so they roll over at the provider's midnight even if the mock keeps running.
+
 The slots endpoint returns provider-local slot labels and availability metadata. It handles the seed closure/booked-slot data, provider weekly hours, specialist consultation duration/buffer, provider-local past-time checks, the 90-day horizon and group booking availability. The frontend remains responsible for displaying a clear customer-local converted clock alongside provider-local time.
 
 Timezone values are normalized as follows:
@@ -63,7 +76,7 @@ Timezone values are normalized as follows:
 
 ## Limitations
 
-This is an intentionally small local simulation. It is not secure, durable, multi-user or production-ready. State is held in memory; restarting Node resets it to the original fixtures. There is no failure injection: errors come only from the real rules (for example a 409 when a slot was already booked, or a 422 for an invalid quantity). Do not deploy this mock API publicly.
+This is an intentionally small local simulation. It is not secure, durable, multi-user or production-ready. State is held in memory; restarting Node resets it to the original fixtures. Without the fault headers, errors come only from the real rules (for example a 409 when a slot was already booked, or a 422 for an invalid quantity). Do not deploy this mock API publicly.
 
 ## Where the original assessment inputs live
 

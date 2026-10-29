@@ -19,6 +19,7 @@ export function ProvidersPage() {
 
   return (
     <>
+      <title>Book an appointment · MedEx</title>
       <section className="border-b bg-surface">
         <PageContainer className="py-8 sm:py-10">
           <h1 className="text-3xl font-bold tracking-tight">Book an appointment</h1>

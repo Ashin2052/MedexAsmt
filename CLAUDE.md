@@ -8,14 +8,13 @@ Run from the repo root:
 npm install          # postinstall also installs mock-api/ dependencies
 npm run dev          # scripts/dev.mjs: mock API (4010) + Vite; args go to Vite
 npm run dev:web      # Vite only;  npm run dev:api = mock API only
-npm run check:api    # smoke-check a running API (optional base URL, e.g. http://localhost:5173)
 npm run typecheck    # tsc -b
 npm run lint         # oxlint (.oxlintrc.json; mock-api/ ignored)
 npm test             # vitest run;  npm run test:watch
 npm run build        # tsc -b && vite build
 npx vitest run <file>        # one file;  npx vitest run -t "<name>"  tests matching a name
 ```
-`curl` is not installed: use `npm run check:api` or Node `fetch`. Installing `vitest` with npm 9 hits an npm bug (`edgesOut`); use `--legacy-peer-deps` for that package.
+`curl` is not installed: use Node `fetch`. Installing `vitest` with npm 9 hits an npm bug (`edgesOut`); use `--legacy-peer-deps` for that package.
 
 ## Architecture
 - **Layout:** `src/app/` (router, layout, providers), `src/shared/` (API client, money, app-level UI), `src/components/ui/` (shadcn primitives), and `src/features/<service-explorer|cart-checkout|appointment-booking>/{api,domain,hooks,components}`. `@/` is an alias for `src/`.
@@ -24,7 +23,7 @@ npx vitest run <file>        # one file;  npx vitest run -t "<name>"  tests matc
 - **Mock API:** `mock-api/server.cjs` exports `createApp({ now, delayMs })`.
   - Task 1 is a read-only JSON Server router at `/api/explorer`; Tasks 2–3 are Express routes over in-memory copies of `../data/*.json`.
   - Their rules live in `mock-api/lib/cart.cjs` and `mock-api/lib/booking.cjs` (`date-fns-tz`), each with its own `*.test.mjs`.
-  - Every `/api` response waits a fixed 1.5 s (`RESPONSE_DELAY_MS`) so loading states are visible. There is no failure injection (removed by user decision, D-25); tests simulate failures with `failNext` in `src/test/mockServer.ts`. Env: `MOCK_API_PORT`.
+  - Every `/api` response waits a fixed 1.5 s (`RESPONSE_DELAY_MS`) so loading states are visible. Failures are opt-in per request: `?mock=` rules (`src/shared/api/mockFlags.ts`) send `x-mock-fault`/`x-mock-delay` headers that `server.cjs` honours (D-27); page tests still simulate failures with `failNext` in `src/test/mockServer.ts`. Env: `MOCK_API_PORT`.
   - State is in memory and resets on restart. The contract is documented in `mock-api/README.md` and the README's API endpoint table. Contract changes need user approval.
 - **Tests:** colocated `*.test.ts(x)`. Helpers in `src/test/`: `mockServer.ts` (the real mock on a random port, `FIXED_NOW` = Mon 26 Oct 2026 10:00 Bangkok), `fixtures.ts`, `explorerIndex.ts`, and `setup.ts` (ResizeObserver stub for Radix). Test files are type-checked by `tsconfig.test.json`.
 - **Design:** light theme only. Tokens are in `src/index.css`: white page, `surface` `#F8F7FB`, primary purple `#70208F`, magenta `#A43A9B`, teal `#26B6B0` (non-text only), text `#252238`. Never add `dark:` classes or a theme toggle.

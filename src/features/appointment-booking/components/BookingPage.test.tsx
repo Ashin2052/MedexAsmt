@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -29,6 +29,7 @@ const slotRadio = (name: RegExp) => screen.findByRole('radio', { name })
 const summary = () => screen.getByRole('complementary', { name: /Your appointment|Your change/ })
 
 beforeEach(async () => {
+  localStorage.clear()
   server = await startMockServer()
   vi.stubGlobal('fetch', server.fetch)
 })
@@ -104,6 +105,23 @@ describe('BookingPage', () => {
     expect(server.booking().bookings.size).toBe(2) // the existing booking + exactly one new one
   })
 
+  it('after a reload mid-booking, replays the saved attempt with the same key and shows the true result', async () => {
+    const user = userEvent.setup()
+    renderAt('/booking/48?tz=Asia/Bangkok&date=2026-10-29&time=10:00')
+    await slotRadio(/^10:00 to 10:30/)
+    server.failNext('POST', '/api/bookings', 'lose-response')
+    await user.click(screen.getByRole('button', { name: 'Confirm booking' }))
+    expect(await screen.findByText('Checking whether it went through')).toBeInTheDocument()
+
+    cleanup() // the customer reloads the page
+    renderAt('/booking/48?tz=Asia/Bangkok&date=2026-10-29&time=10:00')
+    expect(await screen.findByText('You’re booked')).toBeInTheDocument()
+    const keys = server.callsTo('POST', '/api/bookings').map((c) => (c.body as { idempotencyKey: string }).idempotencyKey)
+    expect(keys).toEqual([keys[0], keys[0]])
+    expect(server.booking().bookings.size).toBe(2) // the existing booking + exactly one new one
+    expect(localStorage.getItem('medex.bookingAttempt.v1')).toBeNull()
+  })
+
   it('explains reduced hours when a specialist consults outside opening hours', async () => {
     const rana = '0d113411-a562-4427-bcf5-96aff364e228'
     renderAt(`/booking/48?tz=Asia/Bangkok&specialist=${rana}&date=2026-10-27`)
@@ -139,6 +157,8 @@ describe('BookingPage', () => {
     const user = userEvent.setup()
     renderAt('/booking/48?tz=Asia/Bangkok&date=2026-10-29')
     const grid = await screen.findByRole('grid')
+    // "Today" is announced, not only shown by a ring.
+    expect(within(grid).getByRole('button', { name: /^Monday, 26 October 2026, today at the provider, available/ })).toBeInTheDocument()
     const selected = within(grid).getByRole('button', { name: /^Thursday, 29 October 2026, available/ })
     act(() => selected.focus())
     await user.keyboard('{ArrowRight}')

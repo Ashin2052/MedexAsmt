@@ -1,5 +1,7 @@
 // The single HTTP boundary between the UI and the mock API. Requests go to
 // same-origin /api/*, which the Vite dev server proxies to mock-api/.
+import { takeMockHeaders } from './mockFlags'
+
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
@@ -53,12 +55,21 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     if (value !== undefined) params.set(key, String(value))
   }
   const url = params.size ? `${path}?${params}` : path
+  const mock = takeMockHeaders(method, path)
+  const headers = {
+    ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    ...mock.headers,
+  }
+
+  // A request cancelled before its response gives its ?mock= rule back. This runs
+  // synchronously on abort, before React StrictMode's dev remount refetches.
+  signal?.addEventListener('abort', mock.restore, { once: true })
 
   let res: Response
   try {
     res = await fetch(url, {
       method,
-      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+      headers: Object.keys(headers).length ? headers : undefined,
       body: body === undefined ? undefined : JSON.stringify(body),
       signal,
     })
@@ -67,6 +78,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       throw new ApiError('The request was cancelled.', 'aborted')
     }
     throw new ApiError("We couldn't reach the server. Check your connection and try again.", 'network')
+  } finally {
+    signal?.removeEventListener('abort', mock.restore)
   }
 
   if (!res.ok) {

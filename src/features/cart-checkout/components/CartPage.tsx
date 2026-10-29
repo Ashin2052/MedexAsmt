@@ -1,10 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ShoppingCart } from 'lucide-react'
+import { Loader2, ShoppingCart } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { describeApiError } from '@/shared/api/client'
+import { useDelayedFlag } from '@/shared/lib/useDelayedFlag'
 import { useOnlineStatus } from '@/shared/lib/useOnlineStatus'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { ErrorState } from '@/shared/ui/ErrorState'
@@ -14,7 +15,7 @@ import { RefreshButton } from '@/shared/ui/RefreshButton'
 import { chooseWellnessOption, fetchCart, removeLine } from '../api/cartApi'
 import type { RawCart } from '../api/schemas'
 import { buildCartView, isCheckoutReady } from '../domain/cart'
-import { activeRecordFor } from '../domain/checkout'
+import { activeRecordFor, summarizeCheckout } from '../domain/checkout'
 import { useCheckout } from '../hooks/useCheckout'
 import { useGuestCart } from '../hooks/useGuestCart'
 import { useQuantityQueue } from '../hooks/useQuantityQueue'
@@ -121,6 +122,8 @@ export function CartPage() {
     : []
   const placed = checkout.records.filter((r): r is Extract<CheckoutRecord, { status: 'placed' }> => r.status === 'placed')
   const savingLineIds = queue.pendingLineIds
+  const saving = savingLineIds.size > 0 || checkout.records.some((r) => r.status === 'submitting')
+  const slow = useDelayedFlag(saving || query.isFetching)
 
   const handleCheckoutAll = async () => {
     setCheckingOutAll(true)
@@ -133,6 +136,7 @@ export function CartPage() {
 
   return (
     <>
+      <title>Your cart · MedEx</title>
       <section className="border-b bg-surface">
         <PageContainer className="py-8 sm:py-10">
           <h1 id="cart-title" tabIndex={-1} className="flex items-center gap-3 text-3xl font-bold tracking-tight focus:outline-none">
@@ -143,6 +147,16 @@ export function CartPage() {
             {cart
               ? `${cart.totalItems} ${cart.totalItems === 1 ? 'item' : 'items'} in ${cart.groups.length} ${cart.groups.length === 1 ? 'group' : 'groups'} — each group is paid and booked separately.`
               : 'Loading…'}
+          </p>
+          <p role="status" className="mt-1 flex min-h-5 items-center gap-2 text-sm text-muted-foreground">
+            {slow && (
+              <>
+                <Loader2 aria-hidden="true" className="size-4 motion-safe:animate-spin" />
+                {saving
+                  ? 'Still saving — the connection seems slow. Please keep this page open.'
+                  : 'Still loading your cart — the connection seems slow.'}
+              </>
+            )}
           </p>
         </PageContainer>
       </section>
@@ -213,6 +227,7 @@ export function CartPage() {
               busy={checkingOutAll}
               offline={!online}
               placed={placed}
+              outcome={summarizeCheckout(checkout.records)}
               onCheckoutAll={() => void handleCheckoutAll()}
               onClearFinished={checkout.clearFinished}
             />

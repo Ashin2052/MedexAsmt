@@ -12,6 +12,7 @@ const HIGHLIGHTS = [
 export function HomePage() {
   return (
     <>
+      <title>MedEx · Find, compare and book health services</title>
       <section className="border-b bg-surface">
         <PageContainer className="py-16 sm:py-24">
           <p className="text-sm font-semibold tracking-wide text-brand-magenta uppercase">Healthcare marketplace</p>

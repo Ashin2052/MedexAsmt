@@ -12,23 +12,28 @@ const URL_COMMIT_DELAY_MS = 300
 export function useSearchInput(urlQuery: string, commit: (value: string) => void) {
   const [value, setValue] = useState(urlQuery)
   const [syncedUrlQuery, setSyncedUrlQuery] = useState(urlQuery)
+  // Our own write still on its way to the URL: when it lands, the box already
+  // shows it (maybe with more typed since), so it must not overwrite the box.
+  const [committed, setCommitted] = useState<string | null>(null)
 
-  // URL changed from outside (back/forward, chip removal, clear all).
+  // URL changed: adopt it unless it is our own commit arriving
+  // (back/forward, chip removal and clear all are adopted).
   if (urlQuery !== syncedUrlQuery) {
     setSyncedUrlQuery(urlQuery)
-    setValue(urlQuery)
+    if (urlQuery === committed) setCommitted(null)
+    else setValue(urlQuery)
   }
 
   const commitNow = () => {
     if (value.trim() === urlQuery.trim()) return
-    setSyncedUrlQuery(value.trim())
+    setCommitted(value.trim())
     commit(value)
   }
 
   useEffect(() => {
     if (value.trim() === urlQuery.trim()) return
     const timer = window.setTimeout(() => {
-      setSyncedUrlQuery(value.trim())
+      setCommitted(value.trim())
       commit(value)
     }, URL_COMMIT_DELAY_MS)
     return () => window.clearTimeout(timer)

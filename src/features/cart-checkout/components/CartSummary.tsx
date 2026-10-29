@@ -10,6 +10,8 @@ type CartSummaryProps = {
   busy: boolean
   offline: boolean
   placed: Extract<CheckoutRecord, { status: 'placed' }>[]
+  /** One sentence about all orders (see summarizeCheckout); null when nothing needs saying. */
+  outcome: string | null
   onCheckoutAll: () => void
   onClearFinished: () => void
 }
@@ -31,7 +33,7 @@ function MoneyList({ amounts }: { amounts: Money[] }) {
  * What the customer will pay, per currency, and how many separate orders that
  * is. There is deliberately no grand total: currencies are never added.
  */
-export function CartSummary({ cart, readyCount, busy, offline, placed, onCheckoutAll, onClearFinished }: CartSummaryProps) {
+export function CartSummary({ cart, readyCount, busy, offline, placed, outcome, onCheckoutAll, onClearFinished }: CartSummaryProps) {
   return (
     <aside aria-labelledby="cart-summary-title" className="rounded-lg border bg-card p-5 shadow-card lg:sticky lg:top-20">
       <h2 id="cart-summary-title" className="flex items-center gap-2 text-lg font-semibold">
@@ -41,6 +43,9 @@ export function CartSummary({ cart, readyCount, busy, offline, placed, onCheckou
       <p className="mt-1 text-sm text-muted-foreground">
         Each group is a separate order with its own payment. Totals are shown per currency and never combined.
       </p>
+      <div role="status" aria-live="polite">
+        {outcome && <p className="mt-3 rounded-md border-l-4 border-primary bg-surface px-3 py-2 text-sm font-medium">{outcome}</p>}
+      </div>
 
       <div className="mt-4 border-t pt-4">
         {cart.totalsByCurrency.length > 0 ? (

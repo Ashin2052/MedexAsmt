@@ -109,8 +109,10 @@ export function CartGroupCard(props: CartGroupCardProps) {
         {ready ? (
           <fieldset disabled={busy}>
             <legend className="text-sm font-semibold">Payment for this order</legend>
+            {/* `disabled` here too: Radix doesn't see the fieldset's, and would keep an unfocusable group as a tab stop. */}
             <RadioGroup
               value={paymentMethod}
+              disabled={busy}
               onValueChange={(value) => props.onPaymentMethodChange(value === 'pay_at_clinic' ? 'pay_at_clinic' : 'card')}
               className="mt-2 grid grid-cols-2 gap-2"
             >

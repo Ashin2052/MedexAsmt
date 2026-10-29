@@ -152,7 +152,8 @@ function ProviderFacet({ index, filters, counts, onChange }: FilterPanelProps) {
           autoComplete="off"
         />
       </div>
-      <ul aria-label="Providers" className="max-h-64 overflow-y-auto pr-1">
+      {/* Focusable so the list can be scrolled by keyboard even when every option is disabled (WCAG 2.1.1). */}
+      <ul aria-label="Providers" tabIndex={0} className="max-h-64 overflow-y-auto rounded-sm pr-1">
         {ordered.map((provider) => (
           <li key={provider.id}>
             <CheckboxOption

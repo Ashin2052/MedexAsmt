@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/shared/api/client'
 import type { CheckoutIntent, CheckoutRecord } from '../types'
-import { activeRecordFor, classifyCheckoutError, reconcilePlan, shouldReuseKey } from './checkout'
+import { activeRecordFor, classifyCheckoutError, reconcilePlan, shouldReuseKey, summarizeCheckout } from './checkout'
 
 const intent = (groupType = 'lab_test', paymentMethod: CheckoutIntent['paymentMethod'] = 'card'): CheckoutIntent => ({
   attemptId: `a-${groupType}`,
@@ -70,5 +70,31 @@ describe('reconcilePlan after reload', () => {
     ]
     expect(activeRecordFor(records, 'lab_test')?.status).toBe('failed')
     expect(activeRecordFor(records.slice(0, 1), 'lab_test')).toBeUndefined()
+  })
+})
+
+describe('summarizeCheckout', () => {
+  const placed = (g: string): CheckoutRecord => ({ status: 'placed', intent: intent(g), orderId: `o-${g}`, orderStatus: 'paid' })
+  const failed = (g: string): CheckoutRecord => ({ status: 'failed', intent: intent(g), kind: 'server', message: '', retryable: true })
+
+  it('is silent when every order is placed', () => {
+    expect(summarizeCheckout([placed('Lab tests'), placed('Packages')])).toBeNull()
+    expect(summarizeCheckout([])).toBeNull()
+  })
+
+  it('says what succeeded, what did not, and that only the failed one needs retrying', () => {
+    expect(summarizeCheckout([placed('Lab tests'), failed('Wellness'), placed('Packages')])).toBe(
+      '2 of 3 orders placed. Wellness was not ordered. Your other orders are not affected. You can try it again below.',
+    )
+  })
+
+  it('reports in-flight and unknown orders without claiming a result', () => {
+    expect(
+      summarizeCheckout([
+        placed('Lab tests'),
+        { status: 'unknown', intent: intent('Packages'), message: '' },
+        { status: 'submitting', intent: intent('Wellness') },
+      ]),
+    ).toBe("1 of 3 orders placed. Placing Wellness… We're still checking whether Packages went through — you won't be charged twice.")
   })
 })

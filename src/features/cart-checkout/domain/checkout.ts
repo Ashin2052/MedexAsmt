@@ -96,3 +96,33 @@ export function describeOrder(record: Extract<CheckoutRecord, { status: 'placed'
   if (record.orderStatus === 'failed') return 'Payment failed'
   return record.intent.paymentMethod === 'pay_at_clinic' ? 'Booked — pay at the clinic' : 'Payment processing'
 }
+
+function joinLabels(records: CheckoutRecord[]): string {
+  const labels = records.map((r) => r.intent.groupLabel)
+  return labels.length > 1 ? `${labels.slice(0, -1).join(', ')} and ${labels.at(-1)}` : (labels[0] ?? '')
+}
+
+/**
+ * One plain-language sentence about all of the customer's orders, so several
+ * separate orders read as one story: what is done, and what still needs them.
+ * Null when there is nothing to report.
+ */
+export function summarizeCheckout(records: CheckoutRecord[]): string | null {
+  const by = (status: CheckoutRecord['status']) => records.filter((r) => r.status === status)
+  const placed = by('placed')
+  const failed = by('failed')
+  const unknown = by('unknown')
+  const submitting = by('submitting')
+  if (!failed.length && !unknown.length && !submitting.length) return null
+
+  const parts: string[] = []
+  if (records.length > 1) parts.push(`${placed.length} of ${records.length} orders placed.`)
+  if (submitting.length) parts.push(`Placing ${joinLabels(submitting)}…`)
+  if (unknown.length) parts.push(`We're still checking whether ${joinLabels(unknown)} went through — you won't be charged twice.`)
+  if (failed.length) {
+    parts.push(
+      `${joinLabels(failed)} ${failed.length === 1 ? 'was' : 'were'} not ordered. ${placed.length ? 'Your other orders are not affected. ' : ''}You can try ${failed.length === 1 ? 'it' : 'them'} again below.`,
+    )
+  }
+  return parts.join(' ')
+}

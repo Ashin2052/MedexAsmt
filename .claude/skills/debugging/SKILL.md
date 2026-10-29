@@ -13,7 +13,7 @@ Find the root cause before changing code. Never fix a symptom by loosening a sch
   1. **A unit test** against the pure `domain/` function with fixture data (`explorerFixture()`, `fixtureIndex()`, `fixtureCart()`).
   2. **A component test** with `startMockServer()`. Use `server.advance(ms)` for time and `server.calls`/`callsTo()` to inspect requests.
   3. **The running app** via `npm run dev`. Every API response takes 1.5 s; use the page's Refresh button (above the list) to re-fetch. There is no failure injection, so reproduce error paths in a test with `server.failNext(...)`.
-- Check API responses directly with `npm run check:api` or `node -e "fetch('http://localhost:4010/api/cart').then(r=>r.json()).then(console.log)"` (`curl` is not installed).
+- Check API responses directly with `node -e "fetch('http://localhost:4010/api/cart').then(r=>r.json()).then(console.log)"` (`curl` is not installed).
 
 ## 2. Isolate the layer
 Follow the data from fixture to screen and find the first point where it is wrong:
